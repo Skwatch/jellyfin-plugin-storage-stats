@@ -1,0 +1,30 @@
+<!-- Storage Availability tab for the Custom Tabs plugin. -->
+<!-- Paste this into Dashboard -> Plugins -> Custom Tabs -> (your tab) -> Content. -->
+<!-- Assumes Jellyfin has no base URL configured (server at the root, e.g. http://host:8096). -->
+<!-- If you later add a base URL, prefix the src below with it, e.g. src="/yourbase/StorageStats/Page". -->
+
+<style>
+    .storage-stats-tab {
+        text-align: center;
+        padding: 20px;
+    }
+
+    .storage-stats-tab iframe {
+        width: 100%;
+        max-width: 460px;
+        height: 380px;
+        border: none;
+        background: transparent;
+    }
+
+    @media (max-width: 990px) {
+        .storage-stats-tab iframe {
+            max-width: 100%;
+            height: 400px;
+        }
+    }
+</style>
+
+<div class="storage-stats-tab">
+    <iframe src="/StorageStats/Page" title="Storage Availability"></iframe>
+</div>
