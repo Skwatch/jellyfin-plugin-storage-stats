@@ -77,12 +77,19 @@ plugin (and its File Transformation dependency) installed to actually
 place it in Jellyfin's web UI as a tab. See `CUSTOM_TABS_SNIPPET.html` in
 this repo for the exact HTML to paste into Custom Tabs' settings.
 
-**Known quirk:** on at least one setup, opening the tab from the Jellyfin
-server's own machine via `http://localhost:8096/...` showed a blank card,
-while the same tab displayed correctly for remote users connecting through
-a public hostname (e.g. a DuckDNS address). If your tab looks blank, try
-it from a different device or a non-localhost address before assuming
-something's broken.
+**Use a full absolute URL for the iframe `src`, not a relative path.**
+`src="/StorageStats/Page"` works in a desktop browser, because the tab is
+rendered as part of the Jellyfin web app served from Jellyfin's own
+origin. It does not reliably work everywhere: it showed a blank card when
+accessed from `http://localhost:8096/...` on the server's own machine, and
+was blank for a remote user on the Jellyfin **Android app**, which renders
+tab content in a context that doesn't share Jellyfin's origin the same way
+a browser tab does — a relative path there resolves to nothing. Custom
+Tabs' own documented Jellyseerr example uses a full URL for exactly this
+reason (`src="{REQUESTS_URL}"`, a placeholder for an absolute address).
+Use your server's actual reachable address instead, e.g.
+`src="http://your-address:8096/StorageStats/Page"` — the snippet in this
+repo already does this.
 
 ## Endpoints
 

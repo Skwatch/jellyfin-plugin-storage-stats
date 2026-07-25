@@ -1,7 +1,13 @@
 <!-- Storage Availability tab for the Custom Tabs plugin. -->
 <!-- Paste this into Dashboard -> Plugins -> Custom Tabs -> (your tab) -> Content. -->
-<!-- Assumes Jellyfin has no base URL configured (server at the root, e.g. http://host:8096). -->
-<!-- If you later add a base URL, prefix the src below with it, e.g. src="/yourbase/StorageStats/Page". -->
+
+<!-- IMPORTANT: the iframe src below MUST be a full absolute URL (scheme + host + port), -->
+<!-- not a relative path like "/StorageStats/Page". Native apps (Android/iOS/TV) render -->
+<!-- Custom Tabs content in a context that doesn't share Jellyfin's own origin, so a -->
+<!-- relative path silently resolves to nothing and the tab shows blank there, even -->
+<!-- though it works fine in a desktop browser. Replace the address below with whatever -->
+<!-- URL you'd normally use to reach this Jellyfin server (the same one your existing -->
+<!-- Jellyseerr button uses an absolute URL for, for the same reason). -->
 
 <style>
     .storage-stats-tab {
@@ -26,5 +32,5 @@
 </style>
 
 <div class="storage-stats-tab">
-    <iframe src="/StorageStats/Page" title="Storage Availability"></iframe>
+    <iframe src="http://skwatch85.duckdns.org:8096/StorageStats/Page" title="Storage Availability"></iframe>
 </div>
