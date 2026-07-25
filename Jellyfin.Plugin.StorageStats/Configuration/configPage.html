@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
     <title>Storage Availability</title>
 </head>
-<body style="margin:0; padding:32px; background:#101010; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; text-align:center;">
-    <p style="color:#ddd; font-size:15px; margin-bottom:20px;">Storage Availability's settings live on their own page.</p>
-    <a href="/StorageStats/Config" style="display:inline-block; padding:12px 28px; border-radius:6px; background:linear-gradient(135deg,#4b1a91,#c2189d); color:#fff; font-weight:700; font-size:15px; text-decoration:none;">
-        Open Storage Availability settings
-    </a>
+<body>
+    <div data-role="page" id="StorageStatsConfigPage" class="page type-interior pluginConfigurationPage">
+        <div data-role="content">
+            <div class="content-primary">
+                <div class="verticalSection">
+                    <h2>Storage Availability</h2>
+                    <p>Storage Availability's settings live on their own page (Jellyfin's dashboard doesn't run scripts embedded in plugin config pages here, so the usual in-place settings UI can't be used).</p>
+                </div>
+                <a is="emby-linkbutton" href="/StorageStats/Config" target="_blank" rel="noopener noreferrer" class="raised button-submit block" style="display: inline-block; padding: 10px 20px; color: #fff; text-decoration: none; font-weight: bold; border-radius: 5px;">
+                    Open Storage Availability settings
+                </a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
