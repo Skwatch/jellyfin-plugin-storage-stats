@@ -32,6 +32,7 @@
                             <span>Save</span>
                         </button>
                     </div>
+                    <div id="StorageStatsStatus" style="margin-top: 1em;"></div>
                 </form>
             </div>
         </div>
@@ -76,41 +77,77 @@
             });
         }
 
+        function setStatus(message, isError) {
+            var el = document.querySelector('#StorageStatsStatus');
+            el.textContent = message;
+            el.style.color = isError ? '#ff3b3b' : '#4caf50';
+        }
+
+        function describeError(err) {
+            if (err && err.status) {
+                return 'HTTP ' + err.status + (err.statusText ? ' (' + err.statusText + ')' : '');
+            }
+
+            return (err && err.message) || String(err);
+        }
+
         document.querySelector('#StorageStatsConfigPage')
             .addEventListener('pageshow', function () {
                 Dashboard.showLoadingMsg();
+                setStatus('', false);
+
                 ApiClient.getPluginConfiguration(StorageStatsConfig.pluginUniqueId).then(function (config) {
                     document.querySelector('#AmberThresholdPercent').value = config.AmberThresholdPercent;
                     document.querySelector('#RedThresholdPercent').value = config.RedThresholdPercent;
 
                     var selectedPaths = config.SelectedDrives || [];
-                    ApiClient.ajax({
+                    return ApiClient.ajax({
                         type: 'GET',
                         url: ApiClient.getUrl('StorageStats/Drives'),
                         dataType: 'json'
                     }).then(function (drives) {
                         renderDriveList(drives, selectedPaths);
-                        Dashboard.hideLoadingMsg();
-                    }, function () {
-                        Dashboard.hideLoadingMsg();
+                    }, function (err) {
+                        console.error('StorageStats: failed to load drive list', err);
+                        document.querySelector('#DriveList').innerHTML = '';
+                        setStatus('Could not load the drive list (' + describeError(err) + '). Thresholds above still loaded fine; auto-detection will be used until this is fixed.', true);
                     });
+                }).catch(function (err) {
+                    console.error('StorageStats: failed to load plugin configuration', err);
+                    setStatus('Could not load plugin configuration (' + describeError(err) + ').', true);
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
                 });
             });
 
         document.querySelector('#StorageStatsConfigForm')
             .addEventListener('submit', function (e) {
+                e.preventDefault();
+
                 Dashboard.showLoadingMsg();
+                setStatus('', false);
+
                 ApiClient.getPluginConfiguration(StorageStatsConfig.pluginUniqueId).then(function (config) {
                     config.AmberThresholdPercent = parseInt(document.querySelector('#AmberThresholdPercent').value, 10);
                     config.RedThresholdPercent = parseInt(document.querySelector('#RedThresholdPercent').value, 10);
                     config.SelectedDrives = Array.prototype.slice.call(document.querySelectorAll('.StorageStatsDriveCheckbox:checked')).map(function (el) {
                         return el.value;
                     });
-                    ApiClient.updatePluginConfiguration(StorageStatsConfig.pluginUniqueId, config).then(function (result) {
-                        Dashboard.processPluginConfigurationUpdateResult(result);
+
+                    return ApiClient.updatePluginConfiguration(StorageStatsConfig.pluginUniqueId, config).then(function (result) {
+                        if (Dashboard.processPluginConfigurationUpdateResult) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        }
+
+                        setStatus('Settings saved.', false);
                     });
+                }).catch(function (err) {
+                    console.error('StorageStats: failed to save plugin configuration', err);
+                    setStatus('Save failed (' + describeError(err) + '). Your changes were not saved.', true);
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
                 });
-                e.preventDefault();
+
                 return false;
             });
     </script>

@@ -160,13 +160,13 @@ public class StorageStatsService
         var options = new List<DriveOption>();
         foreach (var drive in DriveInfo.GetDrives())
         {
-            if (!drive.IsReady || drive.DriveType != DriveType.Fixed)
-            {
-                continue;
-            }
-
             try
             {
+                if (!drive.IsReady || drive.DriveType != DriveType.Fixed)
+                {
+                    continue;
+                }
+
                 options.Add(new DriveOption
                 {
                     Path = drive.RootDirectory.FullName,
@@ -181,7 +181,7 @@ public class StorageStatsService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to read DriveInfo while listing drive options");
+                _logger.LogWarning(ex, "Failed to read DriveInfo while listing drive options for {DriveName}", drive.Name);
             }
         }
 
