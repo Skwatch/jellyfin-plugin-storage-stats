@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: >
+          dotnet build Jellyfin.Plugin.StorageStats/Jellyfin.Plugin.StorageStats.csproj
+          -c Release
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.version }}
+          -p:FileVersion=${{ steps.version.outputs.version }}
+
+      - name: Package zip
+        id: package
+        run: |
+          mkdir -p dist
+          ZIP_NAME="jellyfin-plugin-storage-stats_${{ steps.version.outputs.version }}.zip"
+          (cd Jellyfin.Plugin.StorageStats/bin/Release/net9.0 && zip -j "$GITHUB_WORKSPACE/dist/$ZIP_NAME" Jellyfin.Plugin.StorageStats.dll)
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Compute MD5 checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(md5sum "dist/${{ steps.package.outputs.zip_name }}" | awk '{print $1}')
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: dist/${{ steps.package.outputs.zip_name }}
+
+      - name: Update manifest.json on main
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          CHECKSUM: ${{ steps.checksum.outputs.checksum }}
+          TAG: ${{ steps.version.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          git fetch origin main
+          git checkout main
+
+          python3 - <<'PYEOF'
+          import json
+          import os
+          import datetime
+
+          version = os.environ["VERSION"]
+          zip_name = os.environ["ZIP_NAME"]
+          checksum = os.environ["CHECKSUM"]
+          tag = os.environ["TAG"]
+          repo = os.environ["REPO"]
+
+          source_url = f"https://github.com/{repo}/releases/download/{tag}/{zip_name}"
+          timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.0000000Z")
+
+          with open("manifest.json") as f:
+              manifest = json.load(f)
+
+          entry = {
+              "version": version,
+              "changelog": f"See https://github.com/{repo}/releases/tag/{tag}",
+              "targetAbi": "10.11.0.0",
+              "sourceUrl": source_url,
+              "checksum": checksum,
+              "timestamp": timestamp,
+          }
+
+          manifest[0]["versions"].insert(0, entry)
+
+          with open("manifest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+              f.write("\n")
+          PYEOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Release ${TAG}: update manifest.json"
+          git push origin HEAD:main

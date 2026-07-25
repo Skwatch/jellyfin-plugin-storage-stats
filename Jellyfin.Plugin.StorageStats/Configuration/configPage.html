@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Storage Availability</title>
+</head>
+<body>
+    <div id="StorageStatsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="StorageStatsConfigForm">
+                    <div class="verticalSection">
+                        <h2>Storage Availability</h2>
+                        <p>These thresholds control when the storage bar on the custom tab switches to a warning colour, based on percent free space remaining.</p>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="AmberThresholdPercent">Amber threshold (% free)</label>
+                        <input id="AmberThresholdPercent" name="AmberThresholdPercent" type="number" is="emby-input" min="0" max="100" />
+                        <div class="fieldDescription">Below this percentage of free space, the bar turns amber.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="RedThresholdPercent">Red threshold (% free)</label>
+                        <input id="RedThresholdPercent" name="RedThresholdPercent" type="number" is="emby-input" min="0" max="100" />
+                        <div class="fieldDescription">Below this percentage of free space, the bar turns red and a warning line is shown.</div>
+                    </div>
+                    <div class="verticalSection">
+                        <h3>Drives to monitor</h3>
+                        <p class="fieldDescription">Pick which fixed drives to include in the storage total. Drives marked "auto-detected" are already covered by your library paths. Leave everything unchecked to auto-detect automatically instead of choosing manually.</p>
+                        <div id="DriveList"></div>
+                    </div>
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        var StorageStatsConfig = {
+            pluginUniqueId: '71fd4f14-4e8c-4dfe-97ee-21ffffddfde1'
+        };
+
+        function formatGb(bytes) {
+            return (bytes / (1024 * 1024 * 1024)).toFixed(1);
+        }
+
+        function renderDriveList(drives, selectedPaths) {
+            var container = document.querySelector('#DriveList');
+            container.innerHTML = '';
+
+            if (!drives.length) {
+                container.innerHTML = '<p class="fieldDescription">No fixed drives detected.</p>';
+                return;
+            }
+
+            drives.forEach(function (drive) {
+                var label = document.createElement('label');
+                label.className = 'emby-checkbox-label';
+                label.style.display = 'block';
+                label.style.margin = '0.5em 0';
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.is = 'emby-checkbox';
+                checkbox.className = 'StorageStatsDriveCheckbox';
+                checkbox.value = drive.Path;
+                checkbox.checked = selectedPaths.indexOf(drive.Path) !== -1;
+
+                var text = document.createElement('span');
+                text.textContent = ' ' + drive.Label + ' — ' + formatGb(drive.FreeBytes) + ' GB free of ' + formatGb(drive.TotalBytes) + ' GB' + (drive.IsAutoDetected ? ' (auto-detected)' : '');
+
+                label.appendChild(checkbox);
+                label.appendChild(text);
+                container.appendChild(label);
+            });
+        }
+
+        document.querySelector('#StorageStatsConfigPage')
+            .addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(StorageStatsConfig.pluginUniqueId).then(function (config) {
+                    document.querySelector('#AmberThresholdPercent').value = config.AmberThresholdPercent;
+                    document.querySelector('#RedThresholdPercent').value = config.RedThresholdPercent;
+
+                    var selectedPaths = config.SelectedDrives || [];
+                    ApiClient.ajax({
+                        type: 'GET',
+                        url: ApiClient.getUrl('StorageStats/Drives'),
+                        dataType: 'json'
+                    }).then(function (drives) {
+                        renderDriveList(drives, selectedPaths);
+                        Dashboard.hideLoadingMsg();
+                    }, function () {
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+            });
+
+        document.querySelector('#StorageStatsConfigForm')
+            .addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(StorageStatsConfig.pluginUniqueId).then(function (config) {
+                    config.AmberThresholdPercent = parseInt(document.querySelector('#AmberThresholdPercent').value, 10);
+                    config.RedThresholdPercent = parseInt(document.querySelector('#RedThresholdPercent').value, 10);
+                    config.SelectedDrives = Array.prototype.slice.call(document.querySelectorAll('.StorageStatsDriveCheckbox:checked')).map(function (el) {
+                        return el.value;
+                    });
+                    ApiClient.updatePluginConfiguration(StorageStatsConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                e.preventDefault();
+                return false;
+            });
+    </script>
+</body>
+</html>

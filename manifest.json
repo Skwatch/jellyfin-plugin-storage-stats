@@ -1,0 +1,12 @@
+[
+  {
+    "guid": "71fd4f14-4e8c-4dfe-97ee-21ffffddfde1",
+    "name": "Storage Availability",
+    "description": "Shows available disk space and rough library capacity estimates through a custom Jellyfin tab.",
+    "overview": "Server-rendered storage dashboard for the Custom Tabs plugin: free/total disk space, a threshold-coloured usage bar, and estimates of how many more episodes or movies will fit based on your library's median item size.",
+    "owner": "Skwatch",
+    "category": "General",
+    "imageUrl": "",
+    "versions": []
+  }
+]
