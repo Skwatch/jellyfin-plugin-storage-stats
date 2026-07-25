@@ -27,6 +27,11 @@ rendering would silently fail. Auto-refresh is done with
 
 - Jellyfin **10.11.x** (targets plugin ABI `10.11.0.0`, built against
   `net9.0`)
+- [Custom Tabs](https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs)
+  (and its File Transformation dependency), installed and working. This
+  plugin only serves the data and the page — Custom Tabs is what actually
+  puts a tab in Jellyfin's web UI. Without it, the endpoints below still
+  work, but there's nowhere in the Jellyfin UI to see them.
 
 ## Installation (via the Jellyfin plugin repository)
 
@@ -47,10 +52,14 @@ any other plugin.
 ## Configuration
 
 Clicking **Storage Availability** under Dashboard → Plugins redirects to a
-plain, server-rendered settings form (no client-side JavaScript — Jellyfin's
-web client as of 10.11.x doesn't execute scripts embedded in plugin config
-pages, so the usual AJAX-based settings UI doesn't work here). Saving does a
-full page reload rather than an in-place update.
+plain, server-rendered settings form (no client-side JavaScript). Saving
+does a full page reload rather than an in-place update. This is a
+deliberate design choice, not a workaround for broken script execution —
+Jellyfin's dashboard does run plugin config page scripts fine as long as
+the content is wrapped in the standard
+`<div class="page type-interior pluginConfigurationPage">` container; a
+plain form was just simpler than reintroducing the authenticated
+`ApiClient` JS pattern.
 
 - **Amber threshold (% free)** — default 20. Below this, the bar turns
   amber.
@@ -67,6 +76,13 @@ This plugin only serves the page — you still need the
 plugin (and its File Transformation dependency) installed to actually
 place it in Jellyfin's web UI as a tab. See `CUSTOM_TABS_SNIPPET.html` in
 this repo for the exact HTML to paste into Custom Tabs' settings.
+
+**Known quirk:** on at least one setup, opening the tab from the Jellyfin
+server's own machine via `http://localhost:8096/...` showed a blank card,
+while the same tab displayed correctly for remote users connecting through
+a public hostname (e.g. a DuckDNS address). If your tab looks blank, try
+it from a different device or a non-localhost address before assuming
+something's broken.
 
 ## Endpoints
 
