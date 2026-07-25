@@ -9,27 +9,31 @@ public static class StorageStatsPageRenderer
 {
     private const double BytesPerGiB = 1024.0 * 1024.0 * 1024.0;
 
+    private record VolumeView(string Label, long TotalBytes, long FreeBytes, double PercentUsed, double PercentFree, string BarClass);
+
     public static string Render(StorageStatsData data, PluginConfiguration config)
     {
-        double percentFree = 100.0 - data.PercentUsed;
-        string barClass = "bar-normal";
+        bool multiVolume = data.Volumes.Count > 1;
+
+        var views = multiVolume
+            ? data.Volumes.Select(v => BuildVolumeView(v.Path, v.TotalBytes, v.FreeBytes, config)).ToList()
+            : new List<VolumeView> { BuildVolumeView(null, data.TotalBytes, data.FreeBytes, config) };
+
+        var worst = views.OrderBy(v => v.PercentFree).First();
         string? warningLine = null;
 
-        if (percentFree < config.RedThresholdPercent)
+        if (worst.PercentFree < config.RedThresholdPercent)
         {
-            barClass = "bar-red";
-            warningLine = "⚠ DANGER — DON'T KILL MY HARD DRIVE! Free up space now.";
+            warningLine = multiVolume
+                ? $"⚠ DANGER — {worst.Label} IS ABOUT TO DIE! Free up space now."
+                : "⚠ DANGER — DON'T KILL MY HARD DRIVE! Free up space now.";
         }
-        else if (percentFree < config.AmberThresholdPercent)
+        else if (worst.PercentFree < config.AmberThresholdPercent)
         {
-            barClass = "bar-amber";
-            warningLine = "⚠ Getting tight in here — keep an eye on it.";
+            warningLine = multiVolume
+                ? $"⚠ Getting tight on {worst.Label} — keep an eye on it."
+                : "⚠ Getting tight in here — keep an eye on it.";
         }
-
-        string availableGb = FormatGb(data.FreeBytes);
-        string totalGb = FormatGb(data.TotalBytes);
-        string percentUsedLabel = data.PercentUsed.ToString("0", CultureInfo.InvariantCulture);
-        string fillWidth = Math.Clamp(data.PercentUsed, 0, 100).ToString("0.0", CultureInfo.InvariantCulture);
 
         string capacityLine = BuildCapacityLine(data);
 
@@ -53,15 +57,66 @@ public static class StorageStatsPageRenderer
         sb.Append("</head><body>\n");
         sb.Append("<div class=\"card\">\n");
         sb.Append("<div class=\"title\">Total Storage</div>\n");
-        sb.Append($"<div class=\"hero\"><span class=\"hero-value\">{availableGb} GB</span><span class=\"hero-sub\">available of {totalGb} GB</span></div>\n");
-        sb.Append("<div class=\"bar-track\">\n");
-        sb.Append($"<div class=\"bar-fill {barClass}\" style=\"width:{fillWidth}%\"></div>\n");
-        sb.Append("</div>\n");
-        sb.Append($"<div class=\"percent-label\">{percentUsedLabel}% used</div>\n");
+
+        for (int i = 0; i < views.Count; i++)
+        {
+            sb.Append(RenderVolumeBlock(views[i], multiVolume, isFirst: i == 0));
+        }
+
         sb.Append(capacityHtml);
         sb.Append(warningHtml);
         sb.Append("</div>\n");
         sb.Append("</body></html>\n");
+
+        return sb.ToString();
+    }
+
+    private static VolumeView BuildVolumeView(string? path, long totalBytes, long freeBytes, PluginConfiguration config)
+    {
+        long usedBytes = totalBytes - freeBytes;
+        double percentUsed = totalBytes > 0 ? (double)usedBytes / totalBytes * 100.0 : 0;
+        double percentFree = 100.0 - percentUsed;
+
+        string barClass = "bar-normal";
+        if (percentFree < config.RedThresholdPercent)
+        {
+            barClass = "bar-red";
+        }
+        else if (percentFree < config.AmberThresholdPercent)
+        {
+            barClass = "bar-amber";
+        }
+
+        return new VolumeView(path ?? string.Empty, totalBytes, freeBytes, percentUsed, percentFree, barClass);
+    }
+
+    private static string RenderVolumeBlock(VolumeView view, bool multiVolume, bool isFirst)
+    {
+        string availableGb = FormatGb(view.FreeBytes);
+        string totalGb = FormatGb(view.TotalBytes);
+        string percentUsedLabel = view.PercentUsed.ToString("0", CultureInfo.InvariantCulture);
+        string fillWidth = Math.Clamp(view.PercentUsed, 0, 100).ToString("0.0", CultureInfo.InvariantCulture);
+
+        var sb = new StringBuilder();
+        string blockClass = multiVolume ? "volume-block volume-block-multi" : "volume-block";
+        if (multiVolume && !isFirst)
+        {
+            blockClass += " volume-block-divider";
+        }
+
+        sb.Append($"<div class=\"{blockClass}\">\n");
+
+        if (multiVolume)
+        {
+            sb.Append($"<div class=\"drive-label\">{view.Label}</div>\n");
+        }
+
+        sb.Append($"<div class=\"hero\"><span class=\"hero-value\">{availableGb} GB</span><span class=\"hero-sub\">available of {totalGb} GB</span></div>\n");
+        sb.Append("<div class=\"bar-track\">\n");
+        sb.Append($"<div class=\"bar-fill {view.BarClass}\" style=\"width:{fillWidth}%\"></div>\n");
+        sb.Append("</div>\n");
+        sb.Append($"<div class=\"percent-label\">{percentUsedLabel}% used</div>\n");
+        sb.Append("</div>\n");
 
         return sb.ToString();
     }
@@ -145,6 +200,20 @@ public static class StorageStatsPageRenderer
             text-transform: uppercase;
             margin-bottom: 18px;
         }
+        .volume-block-divider {
+            margin-top: 22px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .drive-label {
+            color: #fff;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            opacity: 0.85;
+            margin-bottom: 10px;
+        }
         .hero {
             margin-bottom: 20px;
         }
@@ -155,6 +224,9 @@ public static class StorageStatsPageRenderer
             font-size: 48px;
             line-height: 1.1;
             text-shadow: 0 0 20px rgba(255, 255, 255, 0.55), 0 0 40px rgba(217, 37, 172, 0.6);
+        }
+        .volume-block-multi .hero-value {
+            font-size: 32px;
         }
         .hero-sub {
             display: block;

@@ -14,8 +14,9 @@ rendering would silently fail. Auto-refresh is done with
 
 ## What it shows
 
-- Free / used / total space for the drive(s) Jellyfin's libraries live on
-  (auto-detected, or explicitly chosen in the plugin settings)
+- Free / used / total space for the drive(s) Jellyfin's libraries live on,
+  auto-detected from your library paths. If your libraries span more than
+  one drive, each is shown as its own block instead of a summed total.
 - A gradient progress bar that turns amber/red as free space drops below
   configurable thresholds
 - A rough estimate of how many more episodes or movies will fit, based on
@@ -45,17 +46,19 @@ any other plugin.
 
 ## Configuration
 
-Under **Dashboard → Plugins → Storage Availability**:
+Clicking **Storage Availability** under Dashboard → Plugins redirects to a
+plain, server-rendered settings form (no client-side JavaScript — Jellyfin's
+web client as of 10.11.x doesn't execute scripts embedded in plugin config
+pages, so the usual AJAX-based settings UI doesn't work here). Saving does a
+full page reload rather than an in-place update.
 
 - **Amber threshold (% free)** — default 20. Below this, the bar turns
   amber.
 - **Red threshold (% free)** — default 10. Below this, the bar turns red
   and a warning line appears.
-- **Drives to monitor** — a checklist of fixed drives detected on the
-  server. Leave everything unchecked to auto-detect drives from your
-  library paths instead (the default, and normally all you need on a
-  single-drive server). Check specific drives if you want to include a
-  drive that isn't part of any library, or exclude one that is.
+
+Drives are always auto-detected from your library paths; there's no manual
+drive picker.
 
 ## Adding the tab (Custom Tabs plugin)
 
@@ -69,14 +72,19 @@ this repo for the exact HTML to paste into Custom Tabs' settings.
 
 - `GET /StorageStats/Data` — JSON diagnostic endpoint (anonymous)
 - `GET /StorageStats/Page` — the rendered HTML page (anonymous)
-- `GET /StorageStats/Drives` — lists fixed drives for the config page's
-  drive picker (authenticated; used by the dashboard only)
+- `GET /StorageStats/Config` — the settings form (anonymous)
+- `POST /StorageStats/Config` — saves the two thresholds (anonymous)
 
-`/Data` and `/Page` are intentionally anonymous: an iframe navigation
-carries no `Authorization` header, so an authenticated endpoint would
-render a blank frame. The only data exposed is free disk space and
-aggregate library size — nothing else Jellyfin knows about the server or
-its libraries.
+All four are anonymous. `/Data` and `/Page` need to be: an iframe
+navigation carries no `Authorization` header, so an authenticated endpoint
+would render a blank frame. `/Config`'s GET/POST are anonymous for a
+different reason — Jellyfin's web client doesn't execute the JavaScript a
+plugin config page would normally use to call the authenticated
+configuration API, so this had to become a plain HTML form post instead,
+which can't carry that header either. In all cases the only thing exposed
+or mutable is free disk space, aggregate library size, and two threshold
+percentages — nothing else Jellyfin knows about the server or its
+libraries.
 
 ## Building from source
 

@@ -84,10 +84,7 @@ public class StorageStatsService
 
     private List<VolumeInfo> GetVolumes()
     {
-        var selected = Plugin.Instance?.Configuration.SelectedDrives ?? new List<string>();
-        var roots = selected.Count > 0
-            ? new HashSet<string>(selected, StringComparer.OrdinalIgnoreCase)
-            : GetAutoDetectedRoots();
+        var roots = GetAutoDetectedRoots();
 
         if (roots.Count == 0)
         {
@@ -144,48 +141,6 @@ public class StorageStatsService
         }
 
         return roots;
-    }
-
-    /// <summary>
-    /// Lists fixed, ready drives on the machine for the config page's drive picker, flagging which
-    /// would be auto-detected from library paths and which are currently selected in configuration.
-    /// </summary>
-    public List<DriveOption> GetDriveOptions()
-    {
-        var autoDetected = GetAutoDetectedRoots();
-        var selected = new HashSet<string>(
-            Plugin.Instance?.Configuration.SelectedDrives ?? new List<string>(),
-            StringComparer.OrdinalIgnoreCase);
-
-        var options = new List<DriveOption>();
-        foreach (var drive in DriveInfo.GetDrives())
-        {
-            try
-            {
-                if (!drive.IsReady || drive.DriveType != DriveType.Fixed)
-                {
-                    continue;
-                }
-
-                options.Add(new DriveOption
-                {
-                    Path = drive.RootDirectory.FullName,
-                    Label = string.IsNullOrEmpty(drive.VolumeLabel)
-                        ? drive.RootDirectory.FullName
-                        : $"{drive.RootDirectory.FullName} ({drive.VolumeLabel})",
-                    TotalBytes = drive.TotalSize,
-                    FreeBytes = drive.AvailableFreeSpace,
-                    IsSelected = selected.Contains(drive.RootDirectory.FullName),
-                    IsAutoDetected = autoDetected.Contains(drive.RootDirectory.FullName)
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to read DriveInfo while listing drive options for {DriveName}", drive.Name);
-            }
-        }
-
-        return options;
     }
 
     private static string? TryGetDriveRoot(string path)

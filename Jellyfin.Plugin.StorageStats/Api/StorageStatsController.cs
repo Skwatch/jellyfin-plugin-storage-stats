@@ -34,14 +34,33 @@ public class StorageStatsController : ControllerBase
     }
 
     /// <summary>
-    /// Lists fixed drives on the machine, for the admin config page's drive picker.
-    /// Requires an authenticated session (loaded only from the Jellyfin dashboard), unlike
-    /// Data/Page which must be anonymous for iframe embedding.
+    /// Server-rendered settings form. Anonymous because Jellyfin's web client (10.11.x)
+    /// does not execute scripts embedded in plugin config pages, so this can't be saved
+    /// via the usual authenticated ApiClient JS calls — it has to be a plain HTML form
+    /// POST, which can't carry Jellyfin's Authorization header. Only the two threshold
+    /// percentages are exposed here, so the blast radius of that is negligible.
     /// </summary>
-    [HttpGet("Drives")]
-    [Produces("application/json")]
-    public ActionResult<List<Models.DriveOption>> GetDrives()
+    [HttpGet("Config")]
+    [AllowAnonymous]
+    public ContentResult GetConfigForm([FromQuery] bool saved = false)
     {
-        return _service.GetDriveOptions();
+        var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
+        var html = StorageStatsConfigPageRenderer.Render(config, saved);
+        return Content(html, "text/html");
+    }
+
+    [HttpPost("Config")]
+    [AllowAnonymous]
+    public IActionResult PostConfigForm([FromForm] int amberThresholdPercent, [FromForm] int redThresholdPercent)
+    {
+        var plugin = Plugin.Instance;
+        if (plugin is not null)
+        {
+            plugin.Configuration.AmberThresholdPercent = Math.Clamp(amberThresholdPercent, 0, 100);
+            plugin.Configuration.RedThresholdPercent = Math.Clamp(redThresholdPercent, 0, 100);
+            plugin.SaveConfiguration();
+        }
+
+        return Redirect("/StorageStats/Config?saved=true");
     }
 }
