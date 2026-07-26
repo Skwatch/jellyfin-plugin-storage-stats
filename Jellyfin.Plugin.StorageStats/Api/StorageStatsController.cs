@@ -1,6 +1,7 @@
 using Jellyfin.Plugin.StorageStats.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 namespace Jellyfin.Plugin.StorageStats.Api;
 
@@ -20,6 +21,7 @@ public class StorageStatsController : ControllerBase
     [Produces("application/json")]
     public ActionResult<Models.StorageStatsData> GetData()
     {
+        SetNoCache();
         return _service.GetStats();
     }
 
@@ -27,6 +29,7 @@ public class StorageStatsController : ControllerBase
     [AllowAnonymous]
     public ContentResult GetPage()
     {
+        SetNoCache();
         var data = _service.GetStats();
         var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
         var html = StorageStatsPageRenderer.Render(data, config);
@@ -44,6 +47,7 @@ public class StorageStatsController : ControllerBase
     [AllowAnonymous]
     public ContentResult GetConfigForm([FromQuery] bool saved = false)
     {
+        SetNoCache();
         var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
         var html = StorageStatsConfigPageRenderer.Render(config, saved);
         return Content(html, "text/html");
@@ -62,5 +66,12 @@ public class StorageStatsController : ControllerBase
         }
 
         return Redirect("/StorageStats/Config?saved=true");
+    }
+
+    private void SetNoCache()
+    {
+        Response.Headers[HeaderNames.CacheControl] = "no-store, no-cache, must-revalidate, max-age=0";
+        Response.Headers[HeaderNames.Pragma] = "no-cache";
+        Response.Headers[HeaderNames.Expires] = "0";
     }
 }
