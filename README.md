@@ -65,9 +65,18 @@ plain form was just simpler than reintroducing the authenticated
   amber.
 - **Red threshold (% free)** — default 10. Below this, the bar turns red
   and a warning line appears.
-
-Drives are always auto-detected from your library paths; there's no manual
-drive picker.
+- **Auto-detect drives from library paths** — checked by default. When
+  checked, the drive dropdowns below are ignored and the drive(s) your
+  library paths live on are used automatically. Note that Jellyfin's
+  internal "Collections"/"Playlists" virtual folders are explicitly
+  excluded from this detection (they live under Jellyfin's own data
+  directory, not your actual media drives), but auto-detection can still
+  occasionally pick up the wrong drive on some setups. Uncheck this box
+  to select drives explicitly instead.
+- **Drives to monitor** — a set of dropdowns listing the fixed drives
+  detected on the server, only used when auto-detect is unchecked. There's
+  always one empty slot below your current picks; fill it in and save to
+  add another drive.
 
 ## Adding the tab (Custom Tabs plugin)
 

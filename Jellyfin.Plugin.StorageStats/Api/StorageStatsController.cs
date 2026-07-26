@@ -37,11 +37,9 @@ public class StorageStatsController : ControllerBase
     }
 
     /// <summary>
-    /// Server-rendered settings form. Anonymous because Jellyfin's web client (10.11.x)
-    /// does not execute scripts embedded in plugin config pages, so this can't be saved
-    /// via the usual authenticated ApiClient JS calls — it has to be a plain HTML form
-    /// POST, which can't carry Jellyfin's Authorization header. Only the two threshold
-    /// percentages are exposed here, so the blast radius of that is negligible.
+    /// Server-rendered settings form, no client-side JavaScript. Anonymous because a plain
+    /// HTML form POST can't carry Jellyfin's Authorization header. Only the thresholds and
+    /// drive selection are exposed here, so the blast radius of that is negligible.
     /// </summary>
     [HttpGet("Config")]
     [AllowAnonymous]
@@ -49,19 +47,29 @@ public class StorageStatsController : ControllerBase
     {
         SetNoCache();
         var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
-        var html = StorageStatsConfigPageRenderer.Render(config, saved);
+        var availableDrives = _service.GetAvailableFixedDriveRoots();
+        var html = StorageStatsConfigPageRenderer.Render(config, saved, availableDrives);
         return Content(html, "text/html");
     }
 
     [HttpPost("Config")]
     [AllowAnonymous]
-    public IActionResult PostConfigForm([FromForm] int amberThresholdPercent, [FromForm] int redThresholdPercent)
+    public IActionResult PostConfigForm(
+        [FromForm] int amberThresholdPercent,
+        [FromForm] int redThresholdPercent,
+        [FromForm] bool autoDetectDrives,
+        [FromForm] List<string>? selectedDrives)
     {
         var plugin = Plugin.Instance;
         if (plugin is not null)
         {
             plugin.Configuration.AmberThresholdPercent = Math.Clamp(amberThresholdPercent, 0, 100);
             plugin.Configuration.RedThresholdPercent = Math.Clamp(redThresholdPercent, 0, 100);
+            plugin.Configuration.AutoDetectDrives = autoDetectDrives;
+            plugin.Configuration.SelectedDrives = (selectedDrives ?? new List<string>())
+                .Where(d => !string.IsNullOrWhiteSpace(d))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
             plugin.SaveConfiguration();
         }
 

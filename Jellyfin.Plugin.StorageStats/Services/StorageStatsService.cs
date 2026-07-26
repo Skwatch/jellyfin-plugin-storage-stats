@@ -84,7 +84,12 @@ public class StorageStatsService
 
     private List<VolumeInfo> GetVolumes()
     {
-        var roots = GetAutoDetectedRoots();
+        var config = Plugin.Instance?.Configuration;
+        var manualDrives = config?.SelectedDrives?.Where(d => !string.IsNullOrWhiteSpace(d)).ToList() ?? new List<string>();
+
+        var roots = config is not null && !config.AutoDetectDrives && manualDrives.Count > 0
+            ? new HashSet<string>(manualDrives, StringComparer.OrdinalIgnoreCase)
+            : GetAutoDetectedRoots();
 
         if (roots.Count == 0)
         {
@@ -174,6 +179,33 @@ public class StorageStatsService
         {
             return path;
         }
+    }
+
+    /// <summary>
+    /// Lists fixed, ready drives on the machine for the settings page's drive dropdowns.
+    /// </summary>
+    public List<string> GetAvailableFixedDriveRoots()
+    {
+        var roots = new List<string>();
+
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            try
+            {
+                if (!drive.IsReady || drive.DriveType != DriveType.Fixed)
+                {
+                    continue;
+                }
+
+                roots.Add(drive.RootDirectory.FullName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read DriveInfo while listing available drives for {DriveName}", drive.Name);
+            }
+        }
+
+        return roots;
     }
 
     private static string? TryGetDriveRoot(string path)

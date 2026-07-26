@@ -6,22 +6,25 @@ namespace Jellyfin.Plugin.StorageStats.Services;
 
 /// <summary>
 /// Renders the admin settings form server-side, with no client-side JavaScript.
-/// This exists because Jellyfin's web client (as of 10.11.x) injects plugin config
-/// page HTML in a way that does not execute embedded scripts, so the classic
-/// ApiClient/Dashboard JS pattern used by most Jellyfin plugins does not work here.
 /// The form posts directly to StorageStatsController's anonymous Config endpoint.
 /// </summary>
 public static class StorageStatsConfigPageRenderer
 {
-    public static string Render(PluginConfiguration config, bool saved)
+    private const int MinDriveRows = 2;
+    private const int MaxDriveRows = 8;
+
+    public static string Render(PluginConfiguration config, bool saved, List<string> availableDrives)
     {
+        var selectedDrives = config.SelectedDrives.Where(d => !string.IsNullOrWhiteSpace(d)).ToList();
+        int rowCount = Math.Min(MaxDriveRows, Math.Max(MinDriveRows, selectedDrives.Count + 1));
+
         var sb = new StringBuilder();
         sb.Append("<!DOCTYPE html>\n<html><head>\n<meta charset=\"utf-8\">\n<title>Storage Availability settings</title>\n");
         sb.Append("<style>\n").Append(Css).Append("\n</style>\n");
         sb.Append("</head><body>\n");
         sb.Append("<div class=\"card\">\n");
         sb.Append("<div class=\"title\">Storage Availability settings</div>\n");
-        sb.Append("<p class=\"description\">These thresholds control when the storage bar on the custom tab switches to a warning colour, based on percent free space remaining. Drives are detected automatically from your library paths.</p>\n");
+        sb.Append("<p class=\"description\">These thresholds control when the storage bar on the custom tab switches to a warning colour, based on percent free space remaining.</p>\n");
 
         if (saved)
         {
@@ -36,6 +39,36 @@ public static class StorageStatsConfigPageRenderer
         sb.Append("<label class=\"field-label\" for=\"RedThresholdPercent\">Red threshold (% free)</label>\n");
         sb.Append($"<input class=\"field-input\" id=\"RedThresholdPercent\" name=\"RedThresholdPercent\" type=\"number\" min=\"0\" max=\"100\" value=\"{WebUtility.HtmlEncode(config.RedThresholdPercent.ToString())}\" />\n");
         sb.Append("<div class=\"field-description\">Below this percentage of free space, the bar turns red and a warning line is shown.</div>\n");
+
+        sb.Append("<div class=\"drives-section\">\n");
+        sb.Append("<label class=\"checkbox-label\"><input type=\"checkbox\" name=\"autoDetectDrives\" value=\"true\"");
+        if (config.AutoDetectDrives)
+        {
+            sb.Append(" checked");
+        }
+
+        sb.Append(" /> Auto-detect drives from library paths</label>\n");
+        sb.Append("<div class=\"field-description\">When checked, the drives below are ignored and the drive(s) your library paths live on are used automatically. Uncheck this to choose specific drives instead.</div>\n");
+
+        sb.Append("<label class=\"field-label\">Drives to monitor</label>\n");
+
+        for (int i = 0; i < rowCount; i++)
+        {
+            string? current = i < selectedDrives.Count ? selectedDrives[i] : null;
+            sb.Append("<select class=\"field-input\" name=\"SelectedDrives\">\n");
+            sb.Append("<option value=\"\">-- Not used --</option>\n");
+
+            foreach (var drive in availableDrives)
+            {
+                string selectedAttr = string.Equals(drive, current, StringComparison.OrdinalIgnoreCase) ? " selected" : string.Empty;
+                sb.Append($"<option value=\"{WebUtility.HtmlEncode(drive)}\"{selectedAttr}>{WebUtility.HtmlEncode(drive)}</option>\n");
+            }
+
+            sb.Append("</select>\n");
+        }
+
+        sb.Append("<div class=\"field-description\">Only used when auto-detect is unchecked above. There's always one spare slot below your current picks — fill it in and save to add another drive.</div>\n");
+        sb.Append("</div>\n");
 
         sb.Append("<button class=\"save-button\" type=\"submit\">Save</button>\n");
         sb.Append("</form>\n");
@@ -55,6 +88,7 @@ public static class StorageStatsConfigPageRenderer
             display: flex;
             justify-content: center;
             padding-top: 40px;
+            padding-bottom: 40px;
         }
         .card {
             width: 90%;
@@ -101,12 +135,29 @@ public static class StorageStatsConfigPageRenderer
             border: 1px solid rgba(255, 255, 255, 0.3);
             background: rgba(0, 0, 0, 0.35);
             color: #fff;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
+        }
+        select.field-input {
+            background: #2a1a45;
         }
         .field-description {
             color: #ccc;
             font-size: 12px;
             margin-bottom: 18px;
+        }
+        .drives-section {
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            padding-top: 18px;
+            margin-top: 4px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 6px;
         }
         .save-button {
             background: #00a4dc;
