@@ -120,6 +120,7 @@ public class StorageStatsService
     private HashSet<string> GetAutoDetectedRoots()
     {
         var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var internalDataPath = NormalizeForPrefixCheck(_applicationPaths.DataPath);
 
         try
         {
@@ -127,6 +128,14 @@ public class StorageStatsService
             {
                 foreach (var location in folder.Locations)
                 {
+                    // Jellyfin auto-creates internal virtual folders (e.g. "Collections", "Playlists")
+                    // stored under its own data directory; these aren't real media libraries and
+                    // shouldn't count toward which drives the user's media actually lives on.
+                    if (IsUnderPath(location, internalDataPath))
+                    {
+                        continue;
+                    }
+
                     var root = TryGetDriveRoot(location);
                     if (root is not null)
                     {
@@ -141,6 +150,30 @@ public class StorageStatsService
         }
 
         return roots;
+    }
+
+    private static bool IsUnderPath(string candidate, string? basePath)
+    {
+        if (string.IsNullOrEmpty(basePath))
+        {
+            return false;
+        }
+
+        var normalizedCandidate = NormalizeForPrefixCheck(candidate);
+        return normalizedCandidate.StartsWith(basePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeForPrefixCheck(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path);
+            return full.EndsWith(Path.DirectorySeparatorChar) ? full : full + Path.DirectorySeparatorChar;
+        }
+        catch
+        {
+            return path;
+        }
     }
 
     private static string? TryGetDriveRoot(string path)
