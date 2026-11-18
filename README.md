@@ -78,6 +78,28 @@ plain form was just simpler than reintroducing the authenticated
   always one empty slot below your current picks; fill it in and save to
   add another drive.
 
+### Linux, Docker and Unraid
+
+Free space is measured on the **mount point** each library path lives on
+(longest matching mount wins), so it also works on Linux and inside Docker
+containers, not just Windows drive letters. On Unraid, if your media is
+mapped into the Jellyfin container as e.g. `/data` → `/mnt/user/media`, the
+plugin reports the free space of that mount as the container sees it.
+
+Things worth knowing:
+
+- Unraid's `/mnt/user` is a merged view of your array/pool, so a share path
+  reports the filesystem behind that mapping, which can be the whole array
+  rather than one disk. If the figure isn't what you want, map a more
+  specific path, or pick the mount explicitly (uncheck auto-detect).
+- Only paths that are actually mounted into the container are visible. A
+  library path that isn't a separate mount is reported against the
+  container's root filesystem, which is almost never what you want, so make
+  sure your media is a proper volume mapping.
+- `GET /StorageStats/Data` lists each detected volume with its mount path
+  and filesystem type (`path`, `format`) — the quickest way to check what
+  was picked.
+
 ## Adding the tab (Custom Tabs plugin)
 
 This plugin only serves the page — you still need the

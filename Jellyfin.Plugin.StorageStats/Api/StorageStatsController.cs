@@ -47,7 +47,7 @@ public class StorageStatsController : ControllerBase
     {
         SetNoCache();
         var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
-        var availableDrives = _service.GetAvailableFixedDriveRoots();
+        var availableDrives = _service.GetAvailableDriveRoots();
         var html = StorageStatsConfigPageRenderer.Render(config, saved, availableDrives);
         return Content(html, "text/html");
     }

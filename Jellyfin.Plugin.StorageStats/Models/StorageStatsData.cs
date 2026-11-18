@@ -4,6 +4,8 @@ public class VolumeInfo
 {
     public string Path { get; set; } = string.Empty;
 
+    public string Format { get; set; } = string.Empty;
+
     public long TotalBytes { get; set; }
 
     public long FreeBytes { get; set; }

@@ -88,12 +88,12 @@ public class StorageStatsService
         var manualDrives = config?.SelectedDrives?.Where(d => !string.IsNullOrWhiteSpace(d)).ToList() ?? new List<string>();
 
         var roots = config is not null && !config.AutoDetectDrives && manualDrives.Count > 0
-            ? new HashSet<string>(manualDrives, StringComparer.OrdinalIgnoreCase)
+            ? new HashSet<string>(manualDrives, PathComparer)
             : GetAutoDetectedRoots();
 
         if (roots.Count == 0)
         {
-            var fallbackRoot = TryGetDriveRoot(_applicationPaths.ProgramDataPath);
+            var fallbackRoot = ResolveMountRoot(_applicationPaths.ProgramDataPath, GetMountRoots());
             if (fallbackRoot is not null)
             {
                 roots.Add(fallbackRoot);
@@ -106,10 +106,17 @@ public class StorageStatsService
             try
             {
                 var drive = new DriveInfo(root);
+                long total = drive.TotalSize;
+                if (total <= 0)
+                {
+                    continue;
+                }
+
                 volumes.Add(new VolumeInfo
                 {
                     Path = root,
-                    TotalBytes = drive.TotalSize,
+                    Format = SafeDriveFormat(drive),
+                    TotalBytes = total,
                     FreeBytes = drive.AvailableFreeSpace
                 });
             }
@@ -122,10 +129,68 @@ public class StorageStatsService
         return volumes;
     }
 
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    private static StringComparer PathComparer =>
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    /// <summary>
+    /// Mount points / drive roots currently visible to the process. On Windows these are drive
+    /// letters; on Linux (including inside a Docker container, e.g. on Unraid) they are the
+    /// actual mount points, which is what lets us find the disk a library path really lives on.
+    /// </summary>
+    private List<string> GetMountRoots()
+    {
+        var roots = new List<string>();
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            try
+            {
+                if (drive.IsReady)
+                {
+                    roots.Add(drive.RootDirectory.FullName);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read mount info for {DriveName}", drive.Name);
+            }
+        }
+
+        return roots;
+    }
+
+    private string? ResolveMountRoot(string path, List<string> mountRoots)
+    {
+        try
+        {
+            var picked = MountResolver.PickContainingRoot(Path.GetFullPath(path), mountRoots, PathComparison);
+            return picked ?? TryGetDriveRoot(path);
+        }
+        catch
+        {
+            return TryGetDriveRoot(path);
+        }
+    }
+
+    private static string SafeDriveFormat(DriveInfo drive)
+    {
+        try
+        {
+            return drive.DriveFormat;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     private HashSet<string> GetAutoDetectedRoots()
     {
-        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var roots = new HashSet<string>(PathComparer);
         var internalDataPath = NormalizeForPrefixCheck(_applicationPaths.DataPath);
+        var mountRoots = GetMountRoots();
 
         try
         {
@@ -141,7 +206,7 @@ public class StorageStatsService
                         continue;
                     }
 
-                    var root = TryGetDriveRoot(location);
+                    var root = ResolveMountRoot(location, mountRoots);
                     if (root is not null)
                     {
                         roots.Add(root);
@@ -165,7 +230,7 @@ public class StorageStatsService
         }
 
         var normalizedCandidate = NormalizeForPrefixCheck(candidate);
-        return normalizedCandidate.StartsWith(basePath, StringComparison.OrdinalIgnoreCase);
+        return normalizedCandidate.StartsWith(basePath, PathComparison);
     }
 
     private static string NormalizeForPrefixCheck(string path)
@@ -181,10 +246,21 @@ public class StorageStatsService
         }
     }
 
+    private static readonly HashSet<string> PseudoFileSystems = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "proc", "sysfs", "tmpfs", "devtmpfs", "devpts", "cgroup", "cgroup2", "mqueue", "overlay",
+        "squashfs", "securityfs", "debugfs", "tracefs", "pstore", "configfs", "fusectl", "hugetlbfs",
+        "binfmt_misc", "autofs", "bpf", "nsfs", "rpc_pipefs", "efivarfs", "ramfs", "selinuxfs"
+    };
+
+    private static readonly string[] SystemMountPrefixes = { "/proc", "/sys", "/dev", "/etc", "/run" };
+
     /// <summary>
-    /// Lists fixed, ready drives on the machine for the settings page's drive dropdowns.
+    /// Lists the drives / mount points that make sense to monitor, for the settings page's
+    /// dropdowns. On Windows that is fixed drives; on Linux (e.g. Jellyfin in a Docker container
+    /// on Unraid) it is real, non-empty mounts with system and pseudo filesystems filtered out.
     /// </summary>
-    public List<string> GetAvailableFixedDriveRoots()
+    public List<string> GetAvailableDriveRoots()
     {
         var roots = new List<string>();
 
@@ -192,12 +268,31 @@ public class StorageStatsService
         {
             try
             {
-                if (!drive.IsReady || drive.DriveType != DriveType.Fixed)
+                if (!drive.IsReady)
                 {
                     continue;
                 }
 
-                roots.Add(drive.RootDirectory.FullName);
+                var root = drive.RootDirectory.FullName;
+
+                if (OperatingSystem.IsWindows())
+                {
+                    if (drive.DriveType != DriveType.Fixed)
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    if (drive.TotalSize <= 0
+                        || PseudoFileSystems.Contains(SafeDriveFormat(drive))
+                        || SystemMountPrefixes.Any(p => root.Equals(p, StringComparison.Ordinal) || root.StartsWith(p + "/", StringComparison.Ordinal)))
+                    {
+                        continue;
+                    }
+                }
+
+                roots.Add(root);
             }
             catch (Exception ex)
             {

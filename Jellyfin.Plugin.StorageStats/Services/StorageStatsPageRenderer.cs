@@ -108,7 +108,7 @@ public static class StorageStatsPageRenderer
 
         if (multiVolume)
         {
-            sb.Append($"<div class=\"drive-label\">{view.Label}</div>\n");
+            sb.Append($"<div class=\"drive-label\">{System.Net.WebUtility.HtmlEncode(view.Label)}</div>\n");
         }
 
         sb.Append($"<div class=\"hero\"><span class=\"hero-value\">{availableGb} GB</span><span class=\"hero-sub\">available of {totalGb} GB</span></div>\n");
