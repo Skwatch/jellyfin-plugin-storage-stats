@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.9",
+        "changelog": "See https://github.com/Skwatch/jellyfin-plugin-storage-stats/releases/tag/v1.0.0.9",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/Skwatch/jellyfin-plugin-storage-stats/releases/download/v1.0.0.9/jellyfin-plugin-storage-stats_1.0.0.9.zip",
+        "checksum": "bdd3bb7a858509b0795e52b5e9e8ba7c",
+        "timestamp": "2026-11-18T20:43:06.0000000Z"
+      },
+      {
         "version": "1.0.0.8",
         "changelog": "See https://github.com/Skwatch/jellyfin-plugin-storage-stats/releases/tag/v1.0.0.8",
         "targetAbi": "10.11.0.0",
