@@ -9,6 +9,13 @@ public class VolumeInfo
     public long TotalBytes { get; set; }
 
     public long FreeBytes { get; set; }
+
+    /// <summary>
+    /// Gets or sets other mount paths that turned out to be the same underlying filesystem
+    /// (e.g. several Unraid user shares) and were merged into this volume instead of being
+    /// counted again.
+    /// </summary>
+    public List<string> AlsoCoveredPaths { get; set; } = new();
 }
 
 public class StorageStatsData

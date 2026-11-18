@@ -92,6 +92,10 @@ Things worth knowing:
   reports the filesystem behind that mapping, which can be the whole array
   rather than one disk. If the figure isn't what you want, map a more
   specific path, or pick the mount explicitly (uncheck auto-detect).
+- If several library paths turn out to be the same filesystem (e.g. both
+  `/data/movies` and `/data/tvshows` are views of the same Unraid array,
+  reporting identical totals), it is counted once rather than summed. The
+  extra paths are listed under `alsoCoveredPaths` in `/StorageStats/Data`.
 - Only paths that are actually mounted into the container are visible. A
   library path that isn't a separate mount is reported against the
   container's root filesystem, which is almost never what you want, so make

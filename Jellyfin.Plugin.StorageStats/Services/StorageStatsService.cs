@@ -126,7 +126,7 @@ public class StorageStatsService
             }
         }
 
-        return volumes;
+        return MountResolver.MergeSameFilesystem(volumes);
     }
 
     private static StringComparison PathComparison =>
